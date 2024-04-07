@@ -14,21 +14,24 @@
 #include "mex.h"
 #include "mat.h"
 #include <time.h>
+#include <sys/time.h>
 
+// Simple helper function to write a csc matrix to a .mat file
 void write_to_mat(csc *KKT_temp) {
 
-     // Get the current date and time
-    time_t rawtime;
-    struct tm *timeinfo;
-    char buffer[80];
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
 
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
+    struct tm * timeinfo;
+    char buffer[30];
 
-    // Format the date and time as yyyy-mm-dd hh_MM_ss
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H_%M_%S", timeinfo);
-    char filename[100];
-    sprintf(filename, "KKT_temp_%s.mat", buffer);
+    timeinfo = localtime(&tv.tv_sec);
+
+    strftime(buffer,30,"%Y_%m_%d_%H_%M_%S",timeinfo);
+    int microseconds = tv.tv_usec;
+
+    char filename[50];
+    sprintf(filename, "KKT_temp_%s_%06d.mat", buffer, microseconds);
 
     // Create a new MAT-file
     MATFile *pmat = matOpen(filename, "w");
