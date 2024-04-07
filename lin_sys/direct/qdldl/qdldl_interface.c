@@ -17,7 +17,9 @@
 #include <sys/time.h>
 
 // Simple helper function to write a csc matrix to a .mat file
-void write_to_mat(csc *KKT_temp) {
+// This is useful for debugging
+// This function is not intended to be used in production code. It is easily broken.
+void write_to_mat(csc *KKT_temp,const char *fileprefix) {
 
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -30,8 +32,8 @@ void write_to_mat(csc *KKT_temp) {
     strftime(buffer,30,"%Y_%m_%d_%H_%M_%S",timeinfo);
     int microseconds = tv.tv_usec;
 
-    char filename[50];
-    sprintf(filename, "KKT_temp_%s_%06d.mat", buffer, microseconds);
+    char filename[100];
+    sprintf(filename, "%s_%s_%06d.mat", fileprefix, buffer, microseconds);
 
     // Create a new MAT-file
     MATFile *pmat = matOpen(filename, "w");
@@ -54,7 +56,7 @@ void write_to_mat(csc *KKT_temp) {
     memcpy(mxGetJc(KKT), KKT_temp->p, (KKT_temp->n + 1) * sizeof(mwIndex));
 
     // Write the mxArray to the MAT-file
-    if (matPutVariable(pmat, "KKT_temp", KKT) != 0) {
+    if (matPutVariable(pmat, "KKT", KKT) != 0) {
         printf("Error writing mxArray to file\n");
     }
 
@@ -319,8 +321,11 @@ c_int init_linsys_solver_qdldl(qdldl_solver ** sp, const csc * P, const csc * A,
         KKT_temp = form_KKT(P, A, 0, sigma, s->rho_inv_vec, OSQP_NULL, OSQP_NULL, OSQP_NULL, OSQP_NULL, OSQP_NULL);
 
         // Permute matrix
-        if (KKT_temp)
+        if (KKT_temp) {
+            const char *FILE_PREFIX = "KKT_polish_init";
+            write_to_mat(KKT_temp, FILE_PREFIX);
             permute_KKT(&KKT_temp, s, OSQP_NULL, OSQP_NULL, OSQP_NULL, OSQP_NULL, OSQP_NULL, OSQP_NULL);
+        }
     }
     else { // Called from ADMM algorithm
 
@@ -338,7 +343,8 @@ c_int init_linsys_solver_qdldl(qdldl_solver ** sp, const csc * P, const csc * A,
                             s->PtoKKT, s->AtoKKT,
                             &(s->Pdiag_idx), &(s->Pdiag_n), s->rhotoKKT);
         
-        write_to_mat(KKT_temp);
+        const char *FILE_PREFIX = "KKT_init";
+        write_to_mat(KKT_temp, FILE_PREFIX);
 
         // Permute matrix
         if (KKT_temp)
@@ -440,6 +446,9 @@ c_int update_linsys_solver_matrices_qdldl(qdldl_solver * s, const csc *P, const 
     // Update KKT matrix with new A
     update_KKT_A(s->KKT, A, s->AtoKKT);
 
+    const char *FILE_PREFIX = "KKT_P_A_UPDATE";
+    write_to_mat(s->KKT, FILE_PREFIX);
+
     return (QDLDL_factor(s->KKT->n, s->KKT->p, s->KKT->i, s->KKT->x,
         s->L->p, s->L->i, s->L->x, s->D, s->Dinv, s->Lnz,
         s->etree, s->bwork, s->iwork, s->fwork) < 0);
@@ -457,6 +466,9 @@ c_int update_linsys_solver_rho_vec_qdldl(qdldl_solver * s, const c_float * rho_v
 
     // Update KKT matrix with new rho_vec
     update_KKT_param2(s->KKT, s->rho_inv_vec, s->rhotoKKT, s->m);
+
+    const char *FILE_PREFIX = "KKT_RHO_UPDATE";
+    write_to_mat(s->KKT, FILE_PREFIX);
 
     return (QDLDL_factor(s->KKT->n, s->KKT->p, s->KKT->i, s->KKT->x,
         s->L->p, s->L->i, s->L->x, s->D, s->Dinv, s->Lnz,
