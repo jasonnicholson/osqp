@@ -11,6 +11,55 @@
 #include "kkt.h"
 #endif
 
+#include "mex.h"
+#include "mat.h"
+#include <time.h>
+
+void write_to_mat(csc *KKT_temp) {
+
+     // Get the current date and time
+    time_t rawtime;
+    struct tm *timeinfo;
+    char buffer[80];
+
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    // Format the date and time as yyyy-mm-dd hh_MM_ss
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H_%M_%S", timeinfo);
+    char filename[100];
+    sprintf(filename, "KKT_temp_%s.mat", buffer);
+
+    // Create a new MAT-file
+    MATFile *pmat = matOpen(filename, "w");
+    if (pmat == NULL) {
+        printf("Error creating file KKT_temp.mat\n");
+        return;
+    }
+
+    // Create mxArray
+    mxArray *KKT = mxCreateSparse(KKT_temp->m, KKT_temp->n, KKT_temp->nzmax, mxREAL);
+    if (KKT == NULL) {
+        printf("Error creating mxArray\n");
+        return;
+    }
+
+    // Copy data from KKT_temp to KKT
+    // This assumes that the csc structure and mxArray are compatible
+    memcpy(mxGetPr(KKT), KKT_temp->x, KKT_temp->nzmax * sizeof(double));
+    memcpy(mxGetIr(KKT), KKT_temp->i, KKT_temp->nzmax * sizeof(mwIndex));
+    memcpy(mxGetJc(KKT), KKT_temp->p, (KKT_temp->n + 1) * sizeof(mwIndex));
+
+    // Write the mxArray to the MAT-file
+    if (matPutVariable(pmat, "KKT_temp", KKT) != 0) {
+        printf("Error writing mxArray to file\n");
+    }
+
+    // Clean up
+    mxDestroyArray(KKT);
+    matClose(pmat);
+}
+
 #ifndef EMBEDDED
 
 // Free LDL Factorization structure
@@ -285,6 +334,8 @@ c_int init_linsys_solver_qdldl(qdldl_solver ** sp, const csc * P, const csc * A,
         KKT_temp = form_KKT(P, A, 0, sigma, s->rho_inv_vec,
                             s->PtoKKT, s->AtoKKT,
                             &(s->Pdiag_idx), &(s->Pdiag_n), s->rhotoKKT);
+        
+        write_to_mat(KKT_temp);
 
         // Permute matrix
         if (KKT_temp)
@@ -411,3 +462,5 @@ c_int update_linsys_solver_rho_vec_qdldl(qdldl_solver * s, const c_float * rho_v
 
 
 #endif
+
+
