@@ -131,6 +131,10 @@ static c_int LDL_factor(csc *A,  qdldl_solver * p, c_int nvar){
     p->L->x = (c_float *)c_malloc(sizeof(c_float)*sum_Lnz);
     p->L->nzmax = sum_Lnz;
 
+    const char *FILE_PREFIX = "LDL_factor_A";
+    write_to_mat(A, FILE_PREFIX);
+
+
     // Factor matrix
     factor_status = QDLDL_factor(A->n, A->p, A->i, A->x,
                                  p->L->p, p->L->i, p->L->x,
