@@ -27,7 +27,8 @@ void write_to_mat(csc *KKT_temp,const char *fileprefix) {
     struct tm * timeinfo;
     char buffer[30];
 
-    timeinfo = localtime(&tv.tv_sec);
+    time_t safe_time = tv.tv_sec;
+    timeinfo = localtime(&safe_time);
 
     strftime(buffer,30,"%Y_%m_%d_%H_%M_%S",timeinfo);
     int microseconds = tv.tv_usec;
